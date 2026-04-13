@@ -156,4 +156,55 @@ OQMC_HOST_DEVICE inline float uintToFloat(std::uint32_t value)
 	return static_cast<float>(safe) * floatOneOverTwoPow32;
 }
 
+
+OQMC_HOST_DEVICE inline float exponentialDistributionFast(uint32_t input)
+{
+	// Note: this is inaccurate in both head and tail
+	auto x = static_cast<float>(input) * 0x1.0p-32;
+	return -std::log(1.0f - x);
+}
+
+OQMC_HOST_DEVICE inline float exponentialDistributionHead(uint32_t input)
+{
+	auto x = static_cast<float>(+input) * 0x1.0p-32;
+	return -std::log1p(-x);
+}
+
+OQMC_HOST_DEVICE inline float exponentialDistributionTail(uint32_t input)
+{
+	auto x = static_cast<float>(-input) * 0x1.0p-32;
+	return -std::log(x);
+}
+
+OQMC_HOST_DEVICE inline float exponentialDistribution(uint32_t input)
+{
+	return input < 0x80000000 ?
+		exponentialDistributionHead(input) :
+		exponentialDistributionTail(input);
+}
+
+OQMC_HOST_DEVICE inline float exponentialDistributionReference(uint32_t input)
+{
+	auto x = static_cast<double>(input) * 0x1.0p-32;
+	return -std::log(1.0 - x);
+}
+
+OQMC_HOST_DEVICE inline void normalDistribution(const std::uint32_t input[2], float output[2])
+{
+	// Box-Muller transform
+	float u1 = input[0];
+	float u2 = input[1];
+
+	float t = exponentialDistribution(u1);
+	float r = std::sqrt(2.0f * t);
+
+	constexpr double pi = 3.14159265358979323846;
+	float angle = 2.0f * pi * u2;
+	float c = std::cos(angle);
+	float s = std::sin(angle);
+
+	output[0] = r * c;
+	output[1] = r * s;
+}
+
 } // namespace oqmc
